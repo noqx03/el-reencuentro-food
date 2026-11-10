@@ -1,0 +1,121 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  VENTAS
+}
+
+enum PaymentMethod {
+  EFECTIVO
+  MERCADOPAGO
+  DEBITO
+  CREDITO
+}
+
+enum ShiftStatus {
+  ABIERTA
+  CERRADA
+}
+
+model User {
+  id        String   @id @default(uuid())
+  nombre    String
+  email     String   @unique
+  password  String
+  rol       Role     @default(VENTAS)
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cashShifts CashShift[]
+  sales      Sale[]
+
+  @@map("users")
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  nombre    String    @unique
+  orden     Int       @default(0)
+  products  Product[]
+  createdAt DateTime  @default(now())
+
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  nombre      String
+  descripcion String?
+  precio      Decimal  @db.Decimal(10, 2)
+  stockActual Int      @default(0)
+  stockMinimo Int      @default(5)
+  esMenuDia   Boolean  @default(false)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categoryId String
+  category   Category   @relation(fields: [categoryId], references: [id])
+  saleItems  SaleItem[]
+
+  @@map("products")
+}
+
+model CashShift {
+  id              String      @id @default(uuid())
+  montoInicial    Decimal     @db.Decimal(10, 2)
+  montoEfectivo   Decimal?    @db.Decimal(10, 2)
+  montoDigital    Decimal?    @db.Decimal(10, 2)
+  diferencia      Decimal?    @db.Decimal(10, 2)
+  estado          ShiftStatus @default(ABIERTA)
+  observaciones   String?
+  
+  fechaApertura   DateTime    @default(now())
+  fechaCierre     DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  sales  Sale[]
+
+  @@map("cash_shifts")
+}
+
+model Sale {
+  id          String        @id @default(uuid())
+  montoTotal  Decimal       @db.Decimal(10, 2)
+  medioPago   PaymentMethod @default(EFECTIVO)
+  montoPaga   Decimal?      @db.Decimal(10, 2)
+  vuelto      Decimal?      @db.Decimal(10, 2)
+  createdAt   DateTime      @default(now())
+
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  cashShiftId String
+  cashShift   CashShift   @relation(fields: [cashShiftId], references: [id])
+  items       SaleItem[]
+
+  @@map("sales")
+}
+
+model SaleItem {
+  id             String  @id @default(uuid())
+  cantidad       Int
+  precioUnitario Decimal @db.Decimal(10, 2)
+  subtotal       Decimal @db.Decimal(10, 2)
+
+  saleId    String
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@map("sale_items")
+}

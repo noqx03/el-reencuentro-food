@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { 
   ShoppingBag, 
@@ -15,7 +15,9 @@ import {
   Loader2, 
   CheckCircle2, 
   AlertCircle,
-  Printer
+  Printer,
+  Search,
+  X
 } from "lucide-react";
 import Link from "next/link";
 import { TicketPrint } from "@/components/TicketPrint";
@@ -42,13 +44,18 @@ export default function POSPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<string>("EFECTIVO");
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Estado para alimentar los datos del ticket único de cliente al imprimir
+  // Referencia para autofocus del buscador
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Estado para datos del ticket de impresión
   const [lastSaleData, setLastSaleData] = useState<{
     ventaId: string;
     fecha: string;
@@ -60,7 +67,7 @@ export default function POSPage() {
   const userRole = session?.user?.role;
   const isAdminOrSuper = userRole === "ADMIN" || userRole === "SUPERADMIN";
 
-  // Cargar productos del catálogo desde la API
+  // Cargar productos del catálogo
   const fetchProducts = async () => {
     try {
       setLoading(true);
@@ -88,6 +95,22 @@ export default function POSPage() {
 
   useEffect(() => {
     fetchProducts();
+  }, []);
+
+  // Manejo de atajos de teclado (F2 para buscar, ESC para borrar búsqueda)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F2") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+      if (e.key === "Escape" && document.activeElement === searchInputRef.current) {
+        setSearchTerm("");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   // Agregar producto al carrito
@@ -134,10 +157,8 @@ export default function POSPage() {
     );
   };
 
-  // Vaciar carrito
   const clearCart = () => setCart([]);
 
-  // Total acumulado
   const totalAmount = cart.reduce(
     (acc, item) => acc + item.price * item.quantity,
     0
@@ -164,7 +185,6 @@ export default function POSPage() {
       const data = await res.json();
 
       if (res.ok) {
-        // Cargar datos para el Ticket de Cliente
         const ticketItems = cart.map((item) => ({
           nombre: item.nombre,
           cantidad: item.quantity,
@@ -181,9 +201,9 @@ export default function POSPage() {
 
         setMessage({ type: "success", text: "¡Venta registrada con éxito!" });
         setCart([]);
-        await fetchProducts(); // Recargar stock en pantalla
+        setSearchTerm("");
+        await fetchProducts();
 
-        // Disparar la ventana de impresión de Windows
         setTimeout(() => {
           window.print();
         }, 200);
@@ -204,10 +224,15 @@ export default function POSPage() {
     }
   };
 
-  const filteredProducts =
-    selectedCategory === "Todos"
-      ? products
-      : products.filter((p) => p.category?.nombre === selectedCategory);
+  // Filtrado de productos por Categoría y Búsqueda por Texto
+  const filteredProducts = products.filter((p) => {
+    const matchesCategory =
+      selectedCategory === "Todos" || p.category?.nombre === selectedCategory;
+    const matchesSearch = p.nombre
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -226,7 +251,6 @@ export default function POSPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Datos del Operador */}
           <div className="text-right hidden sm:block">
             <p className="text-xs font-semibold text-slate-200">
               {session?.user?.name || "Operador"}
@@ -244,18 +268,16 @@ export default function POSPage() {
             </span>
           </div>
 
-          {/* Panel Administrativo */}
           {isAdminOrSuper && (
             <Link
               href="/admin/productos"
               className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow-md border border-indigo-400/30 flex items-center gap-2"
             >
               <ShieldCheck className="w-4 h-4 text-indigo-200" />
-              <span>Panel Administrativo</span>
+              <span>Panel Admin</span>
             </Link>
           )}
 
-          {/* Cerrar Sesión */}
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="p-2.5 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 border border-slate-700 rounded-xl text-slate-400 transition"
@@ -270,6 +292,30 @@ export default function POSPage() {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
         {/* Catálogo e Ítems */}
         <main className="lg:col-span-8 p-6 flex flex-col space-y-4 overflow-y-auto">
+          
+          {/* BARRA DE BÚSQUEDA RÁPIDA (F2) */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <Search className="w-4 h-4" />
+            </div>
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Buscar producto... (Presioná F2 para enfocar)"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-10 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 transition shadow-inner"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
           {/* Selector de Categorías */}
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
             {categories.map((cat) => (
@@ -292,6 +338,11 @@ export default function POSPage() {
             <div className="flex items-center justify-center h-64 text-slate-500 gap-2">
               <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
               <span>Cargando productos...</span>
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-slate-500 text-xs">
+              <Search className="w-8 h-8 mb-2 stroke-1" />
+              <span>No se encontraron productos coincidentes</span>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -518,7 +569,7 @@ export default function POSPage() {
         </aside>
       </div>
 
-      {/* TICKET DE CLIENTE OCULTO EN PANTALLA, ACTIVO SOLO EN IMPRESIÓN */}
+      {/* TICKET DE CLIENTE */}
       {lastSaleData && (
         <TicketPrint
           ventaId={lastSaleData.ventaId}

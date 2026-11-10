@@ -14,9 +14,11 @@ import {
   QrCode, 
   Loader2, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  Printer
 } from "lucide-react";
 import Link from "next/link";
+import { TicketPrint } from "@/components/TicketPrint";
 
 interface Product {
   id: string;
@@ -46,10 +48,19 @@ export default function POSPage() {
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Estado para alimentar los datos del ticket único de cliente al imprimir
+  const [lastSaleData, setLastSaleData] = useState<{
+    ventaId: string;
+    fecha: string;
+    items: { nombre: string; cantidad: number; precio: number }[];
+    total: number;
+    medioPago: string;
+  } | null>(null);
+
   const userRole = session?.user?.role;
   const isAdminOrSuper = userRole === "ADMIN" || userRole === "SUPERADMIN";
 
-  // Cargar productos del catálogo
+  // Cargar productos del catálogo desde la API
   const fetchProducts = async () => {
     try {
       setLoading(true);
@@ -132,7 +143,7 @@ export default function POSPage() {
     0
   );
 
-  // Registrar venta
+  // Registrar venta e imprimir ticket
   const handleCheckout = async () => {
     if (cart.length === 0 || processing) return;
 
@@ -153,9 +164,29 @@ export default function POSPage() {
       const data = await res.json();
 
       if (res.ok) {
+        // Cargar datos para el Ticket de Cliente
+        const ticketItems = cart.map((item) => ({
+          nombre: item.nombre,
+          cantidad: item.quantity,
+          precio: item.price,
+        }));
+
+        setLastSaleData({
+          ventaId: data.ventaId || data.id || String(Date.now()).slice(-6),
+          fecha: new Date().toLocaleString("es-AR"),
+          items: ticketItems,
+          total: totalAmount,
+          medioPago: paymentMethod,
+        });
+
         setMessage({ type: "success", text: "¡Venta registrada con éxito!" });
         setCart([]);
         await fetchProducts(); // Recargar stock en pantalla
+
+        // Disparar la ventana de impresión de Windows
+        setTimeout(() => {
+          window.print();
+        }, 200);
       } else {
         setMessage({
           type: "error",
@@ -213,7 +244,7 @@ export default function POSPage() {
             </span>
           </div>
 
-          {/* Botón Distintivo: Panel Administrativo */}
+          {/* Panel Administrativo */}
           {isAdminOrSuper && (
             <Link
               href="/admin/productos"
@@ -461,7 +492,7 @@ export default function POSPage() {
               </span>
             </div>
 
-            {/* Botón Cobrar */}
+            {/* Botón Cobrar e Imprimir */}
             <button
               onClick={handleCheckout}
               disabled={cart.length === 0 || processing}
@@ -474,15 +505,29 @@ export default function POSPage() {
               {processing ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Procesando Venta...
+                  Procesando...
                 </>
               ) : (
-                "Cobrar y Registrar"
+                <>
+                  <Printer className="w-4 h-4" />
+                  Cobrar e Imprimir
+                </>
               )}
             </button>
           </div>
         </aside>
       </div>
+
+      {/* TICKET DE CLIENTE OCULTO EN PANTALLA, ACTIVO SOLO EN IMPRESIÓN */}
+      {lastSaleData && (
+        <TicketPrint
+          ventaId={lastSaleData.ventaId}
+          fecha={lastSaleData.fecha}
+          items={lastSaleData.items}
+          total={lastSaleData.total}
+          medioPago={lastSaleData.medioPago}
+        />
+      )}
     </div>
   );
 }

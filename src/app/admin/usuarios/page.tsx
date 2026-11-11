@@ -8,9 +8,10 @@ import {
   ShieldAlert, 
   CheckCircle, 
   XCircle, 
-  Loader2 
+  Loader2, 
+  ArrowLeft 
 } from "lucide-react";
-import AdminNav from "../components/AdminNav";
+import Link from "next/link";
 
 interface Usuario {
   id: string;
@@ -100,19 +101,23 @@ export default function UsuariosAdminPage() {
   const isSuperAdmin = session?.user?.role === "SUPERADMIN";
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Barra de Navegación Administrativa */}
-      <AdminNav />
-
-      <div className="p-6 max-w-5xl mx-auto w-full space-y-6">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
+      <div className="max-w-5xl mx-auto space-y-6">
+        
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500">
-              <Users className="w-6 h-6" />
-            </div>
+            <Link 
+              href="/pos" 
+              className="p-2 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-slate-400 hover:text-slate-200 transition"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
             <div>
-              <h1 className="text-xl font-bold">Gestión de Personal</h1>
+              <h1 className="text-xl font-bold flex items-center gap-2">
+                <Users className="w-6 h-6 text-amber-500" />
+                Gestión de Personal
+              </h1>
               <p className="text-xs text-slate-400">
                 Administrá los usuarios y permisos de venta de mostrador
               </p>

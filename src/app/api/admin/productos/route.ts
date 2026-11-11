@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 // GET: Obtener todos los productos (incluyendo inactivos) con su categoría
 export async function GET() {
   try {
-    cconst session = await getServerSession(authOptions);
+    const session = await getServerSession(authOptions);
 
     const userRole = (session?.user as any)?.rol || (session?.user as any)?.role;
 

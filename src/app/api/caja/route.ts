@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
 
-// GET: Consultar la caja abierta del usuario
+const prisma = new PrismaClient();
+
+// GET: Obtener el estado actual de la caja (turno abierto)
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -12,24 +14,25 @@ export async function GET() {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    const userId = (session.user as any).id;
+
     const cashShift = await prisma.cashShift.findFirst({
       where: {
-       const userId = (session?.user as any)?.id; 
+        userId: userId,
         estado: "ABIERTA",
       },
       include: {
-        sales: true,
+        ventas: true,
       },
     });
 
-    return NextResponse.json({ cashShift });
-  } catch (error: any) {
-    console.error("Error al obtener estado de caja:", error);
-    return NextResponse.json({ error: "Error en el servidor" }, { status: 500 });
+    return NextResponse.json(cashShift);
+  } catch (error) {
+    return NextResponse.json({ error: "Error al obtener estado de caja" }, { status: 500 });
   }
 }
 
-// POST: Abrir o Cerrar Turno con Resumen Directo
+// POST: Abrir una nueva caja
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -38,93 +41,61 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    const userId = (session.user as any).id;
     const body = await req.json();
-    const { accion, montoInicial } = body;
+    const { montoInicial } = body;
 
-    // APERTURA DE CAJA
-    if (accion === "ABRIR") {
-      const cajaAbierta = await prisma.cashShift.findFirst({
-        where: { userId: (session?.user as any)?.id, estado: "ABIERTA" },
-      });
+    // Verificar si ya hay una caja abierta para este usuario
+    const activeShift = await prisma.cashShift.findFirst({
+      where: {
+        userId: userId,
+        estado: "ABIERTA",
+      },
+    });
 
-      if (cajaAbierta) {
-        return NextResponse.json(
-          { error: "Ya hay una caja abierta para este usuario." },
-          { status: 400 }
-        );
-      }
-
-      const nuevoTurno = await prisma.cashShift.create({
-        data: {
-          user: { connect: { id: (session?.user as any)?.id } },
-          montoInicial: Number(montoInicial) || 0,
-          estado: "ABIERTA",
-        },
-      });
-
-      return NextResponse.json({ success: true, cashShift: nuevoTurno });
+    if (activeShift) {
+      return NextResponse.json({ error: "Ya existe una caja abierta" }, { status: 400 });
     }
 
-    // CIERRE DIRECTO DE CAJA
-    if (accion === "CERRAR") {
-      const cajaAbierta = await prisma.cashShift.findFirst({
-        where: { userId: (session?.user as any)?.id, estado: "ABIERTA" },
-        include: { sales: true },
-      });
+    const newShift = await prisma.cashShift.create({
+      data: {
+        userId: userId,
+        montoInicial: parseFloat(montoInicial) || 0,
+        estado: "ABIERTA",
+      },
+    });
 
-      if (!cajaAbierta) {
-        return NextResponse.json(
-          { error: "No hay ninguna caja abierta activa." },
-          { status: 400 }
-        );
-      }
+    return NextResponse.json(newShift, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ error: "Error al abrir la caja" }, { status: 500 });
+  }
+}
 
-      // Agrupar ventas por medio de pago
-      let totalEfectivo = 0;
-      let totalMercadoPago = 0;
-      let totalTarjetas = 0;
+// PATCH: Cerrar caja
+export async function PATCH(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
 
-      cajaAbierta.sales.forEach((sale) => {
-        const monto = Number(sale.montoTotal);
-        const medio = sale.medioPago?.toUpperCase() || "";
-
-        if (medio === "EFECTIVO") {
-          totalEfectivo += monto;
-        } else if (medio === "TRANSFERENCIA" || medio === "MERCADOPAGO" || medio === "MP") {
-          totalMercadoPago += monto;
-        } else {
-          totalTarjetas += monto; // DEBITO, CREDITO, ETC.
-        }
-      });
-
-      const totalVentas = totalEfectivo + totalMercadoPago + totalTarjetas;
-
-      // Marcar caja como CERRADA
-      await prisma.cashShift.update({
-        where: { id: cajaAbierta.id },
-        data: {
-          estado: "CERRADA",
-          fechaCierre: new Date(),
-        },
-      });
-
-      return NextResponse.json({
-        success: true,
-        summary: {
-          vendedor: session.user.name || "Vendedor",
-          montoInicial: Number(cajaAbierta.montoInicial),
-          totalEfectivo,
-          totalMercadoPago,
-          totalTarjetas,
-          totalVentas,
-          efectivoEnCajaEsperado: Number(cajaAbierta.montoInicial) + totalEfectivo,
-        },
-      });
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    return NextResponse.json({ error: "Acción inválida" }, { status: 400 });
-  } catch (error: any) {
-    console.error("Error en módulo de caja:", error);
-    return NextResponse.json({ error: "Error en el servidor" }, { status: 500 });
+    const userId = (session.user as any).id;
+    const body = await req.json();
+    const { id, montoFinal, observaciones } = body;
+
+    const updatedShift = await prisma.cashShift.update({
+      where: { id },
+      data: {
+        montoFinal: parseFloat(montoFinal) || 0,
+        observaciones,
+        estado: "CERRADA",
+        fechaCierre: new Date(),
+      },
+    });
+
+    return NextResponse.json(updatedShift);
+  } catch (error) {
+    return NextResponse.json({ error: "Error al cerrar la caja" }, { status: 500 });
   }
 }

@@ -12,9 +12,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const fechaInicioParam = searchParams.get("fechaInicio");
-    const fechaFinParam = searchParams.get("fechaFin");
+    const host = req.headers.get("host") || "localhost:3000";
+    const protocol = req.headers.get("x-forwarded-proto") || "http";
+    const searchParams = new URL(req.url, `${protocol}://${host}`).searchParams;
 
     // Construcción de filtros por fecha
     let whereClause: any = {};

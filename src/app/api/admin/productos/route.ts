@@ -6,11 +6,13 @@ import { prisma } from "@/lib/prisma";
 // GET: Obtener todos los productos (incluyendo inactivos) con su categoría
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    cconst session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const userRole = (session?.user as any)?.rol || (session?.user as any)?.role;
+
+  if (!session || !session.user || (userRole !== "ADMIN" && userRole !== "SUPERADMIN")) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+}
 
     const productos = await prisma.product.findMany({
       include: {

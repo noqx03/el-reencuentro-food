@@ -98,7 +98,7 @@ export default function UsuariosAdminPage() {
     }
   };
 
-  const isSuperAdmin = session?.user?.role === "SUPERADMIN";
+  const isSuperAdmin = (session?.user as any)?.rol === "SUPERADMIN" || (session?.user as any)?.role === "SUPERADMIN";
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6">

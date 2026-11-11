@@ -25,7 +25,7 @@ async function runSeed() {
     update: {},
     create: {
       email: 'admin@elreencuentro.com',
-      name: 'Administrador',
+      nombre: 'Administrador',
       password: adminPassword,
       role: 'ADMIN',
     },
@@ -37,7 +37,7 @@ async function runSeed() {
     update: {},
     create: {
       email: 'ventas@elreencuentro.com',
-      name: 'Vendedor',
+      nombre: 'Vendedor',
       password: ventasPassword,
       role: 'USER',
     },

@@ -15,10 +15,9 @@ export async function GET() {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
-    const productos = await prisma.producto.findMany({
-      include: { categoria: true },
-      orderBy: { nombre: "asc" },
-    });
+    const productos = await (prisma as any).product
+      ? await (prisma as any).product.findMany({ orderBy: { nombre: "asc" } })
+      : await (prisma as any).producto.findMany({ orderBy: { nombre: "asc" } });
 
     return NextResponse.json(productos);
   } catch (error) {
@@ -39,7 +38,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { nombre, precio, categoriaId, stock, activo } = body;
 
-    const nuevoProducto = await prisma.producto.create({
+    const targetModel = (prisma as any).product || (prisma as any).producto;
+
+    const nuevoProducto = await targetModel.create({
       data: {
         nombre,
         precio: parseFloat(precio),

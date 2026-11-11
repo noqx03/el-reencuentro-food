@@ -6,7 +6,8 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 export const authOptions: NextAuthOptions = {
-  providers: [
+    secret: process.env.NEXTAUTH_SECRET || "supersecretkey123",
+    providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {

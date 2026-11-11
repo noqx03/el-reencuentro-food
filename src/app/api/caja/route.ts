@@ -17,14 +17,14 @@ export async function GET() {
     const userId = (session.user as any).id;
 
     const cashShift = await prisma.cashShift.findFirst({
-      where: {
-        userId: userId,
-        estado: "ABIERTA",
-      },
-      include: {
-        ventas: true,
-      },
-    });
+  where: {
+    userId: userId,
+    estado: "ABIERTA",
+  },
+  include: {
+    ventas: true,
+  } as any,
+});
 
     return NextResponse.json(cashShift);
   } catch (error) {

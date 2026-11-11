@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-// GET: Obtener todos los productos
+// GET: Obtener todos los usuarios
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -15,17 +16,25 @@ export async function GET() {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
-    const productos = await (prisma as any).product
-      ? await (prisma as any).product.findMany({ orderBy: { nombre: "asc" } })
-      : await (prisma as any).producto.findMany({ orderBy: { nombre: "asc" } });
+    const usuarios = await prisma.user.findMany({
+      select: {
+        id: true,
+        nombre: true,
+        email: true,
+        rol: true,
+        activo: true,
+        createdAt: true,
+      },
+      orderBy: { nombre: "asc" },
+    });
 
-    return NextResponse.json(productos);
+    return NextResponse.json(usuarios);
   } catch (error) {
-    return NextResponse.json({ error: "Error al obtener productos" }, { status: 500 });
+    return NextResponse.json({ error: "Error al obtener usuarios" }, { status: 500 });
   }
 }
 
-// POST: Crear un nuevo producto
+// POST: Crear un nuevo usuario
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -36,22 +45,67 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { nombre, precio, categoriaId, stock, activo } = body;
+    const { nombre, email, password, rol } = body;
 
-    const targetModel = (prisma as any).product || (prisma as any).producto;
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
 
-    const nuevoProducto = await targetModel.create({
+    if (existingUser) {
+      return NextResponse.json({ error: "El email ya está registrado" }, { status: 400 });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const nuevoUsuario = await prisma.user.create({
       data: {
         nombre,
-        precio: parseFloat(precio),
-        categoriaId,
-        stock: parseInt(stock, 10) || 0,
-        activo: activo ?? true,
+        email,
+        password: hashedPassword,
+        rol: rol || "VENTAS",
+      },
+      select: {
+        id: true,
+        nombre: true,
+        email: true,
+        rol: true,
+        activo: true,
       },
     });
 
-    return NextResponse.json(nuevoProducto, { status: 201 });
+    return NextResponse.json(nuevoUsuario, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: "Error al crear producto" }, { status: 500 });
+    return NextResponse.json({ error: "Error al crear usuario" }, { status: 500 });
+  }
+}
+
+// PATCH: Cambiar estado activo/inactivo
+export async function PATCH(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    const userRole = (session?.user as any)?.rol || (session?.user as any)?.role;
+
+    if (!session || !session.user || (userRole !== "ADMIN" && userRole !== "SUPERADMIN")) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { id, activo } = body;
+
+    const usuarioActualizado = await prisma.user.update({
+      where: { id },
+      data: { activo },
+      select: {
+        id: true,
+        nombre: true,
+        email: true,
+        rol: true,
+        activo: true,
+      },
+    });
+
+    return NextResponse.json(usuarioActualizado);
+  } catch (error) {
+    return NextResponse.json({ error: "Error al actualizar estado de usuario" }, { status: 500 });
   }
 }

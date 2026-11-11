@@ -13,7 +13,7 @@ export async function GET() {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const currentRole = session.user.role;
+    const currentRole = ((session?.user as any)?.rol || (session?.user as any)?.role);
 
     // Solo ADMIN y SUPERADMIN pueden gestionar usuarios
     if (currentRole !== "ADMIN" && currentRole !== "SUPERADMIN") {
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const currentRole = session.user.role;
+    const currentRole = ((session?.user as any)?.rol || (session?.user as any)?.role);
 
     if (currentRole !== "ADMIN" && currentRole !== "SUPERADMIN") {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
@@ -121,7 +121,7 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const currentRole = session.user.role;
+    const currentRole = ((session?.user as any)?.rol || (session?.user as any)?.role);
 
     if (currentRole !== "ADMIN" && currentRole !== "SUPERADMIN") {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });

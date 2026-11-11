@@ -14,7 +14,7 @@ export async function GET() {
 
     const cashShift = await prisma.cashShift.findFirst({
       where: {
-        userId: session.user.id,
+       const userId = (session?.user as any)?.id; 
         estado: "ABIERTA",
       },
       include: {
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     // APERTURA DE CAJA
     if (accion === "ABRIR") {
       const cajaAbierta = await prisma.cashShift.findFirst({
-        where: { userId: session.user.id, estado: "ABIERTA" },
+        where: { userId: (session?.user as any)?.id, estado: "ABIERTA" },
       });
 
       if (cajaAbierta) {
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
 
       const nuevoTurno = await prisma.cashShift.create({
         data: {
-          user: { connect: { id: session.user.id } },
+          user: { connect: { id: (session?.user as any)?.id } },
           montoInicial: Number(montoInicial) || 0,
           estado: "ABIERTA",
         },
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     // CIERRE DIRECTO DE CAJA
     if (accion === "CERRAR") {
       const cajaAbierta = await prisma.cashShift.findFirst({
-        where: { userId: session.user.id, estado: "ABIERTA" },
+        where: { userId: (session?.user as any)?.id, estado: "ABIERTA" },
         include: { sales: true },
       });
 

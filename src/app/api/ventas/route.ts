@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       // 1. Buscar o crear caja abierta
       let cashShift = await (tx as any).cashShift.findFirst({
         where: {
-          userId: session.user.id,
+          userId: (session?.user as any)?.id,
           estado: "ABIERTA",
         },
       });
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       if (!cashShift) {
         cashShift = await (tx as any).cashShift.create({
           data: {
-            user: { connect: { id: session.user.id } },
+            user: { connect: { id: (session?.user as any)?.id } },
             montoInicial: 0,
             estado: "ABIERTA",
           },
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
         try {
           nuevaVenta = await tx.sale.create({
             data: {
-              user: { connect: { id: session.user.id } },
+              user: { connect: { id: (session?.user as any)?.id } },
               cashShift: { connect: { id: cashShift.id } },
               medioPago: medio as any,
               montoTotal: Number(total),

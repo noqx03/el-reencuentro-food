@@ -37,7 +37,7 @@ async function runSeed() {
       email: 'ventas@elreencuentro.com',
       nombre: 'Vendedor',
       password: ventasPassword,
-      rol: 'USER',
+      rol: 'VENTAS',
     },
   });
 

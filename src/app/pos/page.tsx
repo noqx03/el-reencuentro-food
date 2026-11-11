@@ -64,7 +64,7 @@ export default function POSPage() {
     medioPago: string;
   } | null>(null);
 
-  const userRole = session?.user?.role;
+  const userRole = (session?.user as any)?.rol || (session?.user as any)?.role;
   const isAdminOrSuper = userRole === "ADMIN" || userRole === "SUPERADMIN";
 
   // Cargar productos del catálogo

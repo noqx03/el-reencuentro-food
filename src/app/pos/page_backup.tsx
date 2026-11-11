@@ -46,7 +46,7 @@ export default function POSPage() {
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const userRole = session?.user?.role;
+  const userRole = (session?.user as any)?.rol || (session?.user as any)?.role;
   const isAdminOrSuper = userRole === "ADMIN" || userRole === "SUPERADMIN";
 
   // Cargar productos del catálogo

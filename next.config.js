@@ -7,10 +7,6 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   output: 'standalone',
-  // Desactivamos la generación estática automática conflictiva
-  experimental: {
-    appDir: true,
-  },
 };
 
 module.exports = nextConfig;

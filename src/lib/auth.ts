@@ -1,3 +1,7 @@
+process.env.NEXTAUTH_URL = process.env.NEXTAUTH_URL && process.env.NEXTAUTH_URL.startsWith("http") 
+  ? process.env.NEXTAUTH_URL 
+  : "https://el-reencuentro-food.vercel.app";
+  
 // Forzar un valor por defecto para evitar el error de URL inválida en el build de Vercel
 process.env.NEXTAUTH_URL = process.env.NEXTAUTH_URL || "https://el-reencuentro-food.vercel.app";
 import { NextAuthOptions } from "next-auth";

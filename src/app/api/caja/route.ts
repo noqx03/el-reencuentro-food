@@ -85,15 +85,14 @@ export async function PATCH(req: Request) {
     const { id, montoFinal, observaciones } = body;
 
     const updatedShift = await prisma.cashShift.update({
-      where: { id },
-      data: {
-        montoFinal: parseFloat(montoFinal) || 0,
-        observaciones,
-        estado: "CERRADA",
-        fechaCierre: new Date(),
-      },
-    });
-
+  where: { id },
+  data: {
+    montoFinal: parseFloat(montoFinal) || 0,
+    observaciones,
+    estado: "CERRADA",
+    fechaCierre: new Date(),
+  } as any,
+});
     return NextResponse.json(updatedShift);
   } catch (error) {
     return NextResponse.json({ error: "Error al cerrar la caja" }, { status: 500 });

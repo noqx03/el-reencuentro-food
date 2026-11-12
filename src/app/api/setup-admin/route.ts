@@ -10,11 +10,15 @@ export async function GET(request: Request) {
     
     const admin = await prisma.user.upsert({
       where: { email: "admin@elreencuentro.com" },
-      update: { password: hashedPassword },
+      update: { 
+        password: hashedPassword,
+        nombre: "Administrador"
+      },
       create: {
         email: "admin@elreencuentro.com",
         password: hashedPassword,
         rol: "admin",
+        nombre: "Administrador",
       },
     });
 

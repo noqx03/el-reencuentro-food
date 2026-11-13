@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
       create: {
         email: "admin@elreencuentro.com",
         password: hashedPassword,
-        rol: "admin",
+        rol: Role.admin, // Usamos el Enum oficial de Prisma
         nombre: "Administrador",
       },
     });

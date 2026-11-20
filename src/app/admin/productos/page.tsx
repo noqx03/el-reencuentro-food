@@ -49,8 +49,8 @@ export default function ProductosAdminPage() {
       const res = await fetch("/api/admin/productos");
       if (res.ok) {
         const data = await res.json();
-        setProductos(data.productos);
-        setCategorias(data.categorias);
+        setProductos(Array.isArray(data.productos) ? data.productos : []);
+        setCategorias(Array.isArray(data.categorias) ? data.categorias : []);
       }
     } catch (err) {
       console.error("Error al cargar productos:", err);

@@ -1,94 +1,114 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+const VALID_PAYMENT_METHODS = new Set([
+  "EFECTIVO",
+  "MERCADOPAGO",
+  "DEBITO",
+  "CREDITO",
+]);
+
+function normalizePaymentMethod(metodoPago?: string) {
+  const cleaned = (metodoPago || "EFECTIVO")
+    .toUpperCase()
+    .replace(/[\s_-]+/g, "");
+
+  if (cleaned === "MERCADOPAGO" || cleaned === "MP") return "MERCADOPAGO";
+  if (cleaned === "DEBITO" || cleaned === "TARJETADEBITO") return "DEBITO";
+  if (cleaned === "CREDITO" || cleaned === "TARJETACREDITO") return "CREDITO";
+  if (VALID_PAYMENT_METHODS.has(cleaned)) return cleaned;
+  return "EFECTIVO";
+}
+
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
+    const userId = (session?.user as { id?: string } | undefined)?.id;
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    if (!session || !session.user || !userId) {
+      return NextResponse.json(
+        { error: "Sesión inválida o sin ID de usuario. Volvé a iniciar sesión." },
+        { status: 401 }
+      );
     }
 
     const body = await req.json();
     const { items, metodoPago, total } = body;
 
-    if (!items || items.length === 0) {
+    if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: "El carrito está vacío" }, { status: 400 });
     }
 
-    const metodoUpper = (metodoPago || "").toUpperCase().replace(/\s+/g, "_");
+    const medioPagoFinal = normalizePaymentMethod(metodoPago);
+    const montoTotal = Number(total);
 
-    // Transacción atómica de venta
+    if (!Number.isFinite(montoTotal) || montoTotal < 0) {
+      return NextResponse.json({ error: "Total de venta inválido" }, { status: 400 });
+    }
+
     const venta = await prisma.$transaction(async (tx) => {
-      // 1. Buscar o crear caja abierta
-      let cashShift = await (tx as any).cashShift.findFirst({
+      let cashShift = await tx.cashShift.findFirst({
         where: {
-          userId: (session?.user as any)?.id,
+          userId,
           estado: "ABIERTA",
         },
       });
 
       if (!cashShift) {
-        cashShift = await (tx as any).cashShift.findFirst({
+        cashShift = await tx.cashShift.findFirst({
           where: { estado: "ABIERTA" },
         });
       }
 
       if (!cashShift) {
-        cashShift = await (tx as any).cashShift.create({
+        cashShift = await tx.cashShift.create({
           data: {
-            user: { connect: { id: (session?.user as any)?.id } },
+            userId,
             montoInicial: 0,
             estado: "ABIERTA",
           },
         });
       }
 
-      // 2. Probar variantes del enum de Prisma para MercadoPago
-      let medioPagoFinal = "EFECTIVO";
-      const probablesValores = [metodoUpper, "MERCADOPAGO", "MERCADO_PAGO", "TRANSFERENCIA", "DEBITO", "EFECTIVO"];
+      const computedTotal =
+        montoTotal > 0
+          ? montoTotal
+          : items.reduce(
+              (acc: number, item: any) => acc + Number(item.price) * Number(item.quantity),
+              0
+            );
 
-      let nuevaVenta = null;
-      let ultimoError = null;
+      const nuevaVenta = await tx.sale.create({
+        data: {
+          userId,
+          cashShiftId: cashShift.id,
+          medioPago: medioPagoFinal as any,
+          montoTotal: computedTotal,
+          items: {
+            create: items.map((item: any) => {
+              const qty = Number(item.quantity);
+              const price = Number(item.price);
+              return {
+                productId: item.id,
+                cantidad: qty,
+                precioUnitario: price,
+                subtotal: price * qty,
+              };
+            }),
+          },
+        },
+      });
 
-      for (const medio of probablesValores) {
-        try {
-          nuevaVenta = await tx.sale.create({
-            data: {
-              user: { connect: { id: (session?.user as any)?.id } },
-              cashShift: { connect: { id: cashShift.id } },
-              medioPago: medio as any,
-              montoTotal: Number(total),
-              items: {
-                create: items.map((item: any) => ({
-                  productId: item.id,
-                  cantidad: item.quantity,
-                  precioUnitario: item.price,
-                  subtotal: item.price * item.quantity,
-                })),
-              },
-            },
-          });
-          if (nuevaVenta) break; // Venta creada exitosamente
-        } catch (e) {
-          ultimoError = e;
-        }
-      }
-
-      if (!nuevaVenta) {
-        throw ultimoError || new Error("No se pudo mapear el medio de pago al enum de la base de datos.");
-      }
-
-      // 3. Descontar stock
       for (const item of items) {
         await tx.product.update({
           where: { id: item.id },
           data: {
             stockActual: {
-              decrement: item.quantity,
+              decrement: Number(item.quantity),
             },
           },
         });

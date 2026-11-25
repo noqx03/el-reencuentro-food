@@ -1,6 +1,6 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -24,6 +24,22 @@ enum PaymentMethod {
 enum ShiftStatus {
   ABIERTA
   CERRADA
+}
+
+enum OrderStatus {
+  PENDIENTE
+  EN_PREPARACION
+  LISTO
+  ENTREGADO
+  CANCELADO
+}
+
+enum OrderChannel {
+  MOSTRADOR
+  WHATSAPP
+  TELEFONO
+  PEDIDOSYA
+  RAPPI
 }
 
 model User {
@@ -72,38 +88,50 @@ model Product {
 }
 
 model CashShift {
-  id              String      @id @default(uuid())
-  montoInicial    Decimal     @db.Decimal(10, 2)
-  montoEfectivo   Decimal?    @db.Decimal(10, 2)
-  montoDigital    Decimal?    @db.Decimal(10, 2)
-  diferencia      Decimal?    @db.Decimal(10, 2)
-  estado          ShiftStatus @default(ABIERTA)
-  observaciones   String?
-  
-  fechaApertura   DateTime    @default(now())
-  fechaCierre     DateTime?
+  id            String      @id @default(uuid())
+  montoInicial  Decimal     @db.Decimal(10, 2)
+  montoEfectivo Decimal?    @db.Decimal(10, 2)
+  montoDigital  Decimal?    @db.Decimal(10, 2)
+  diferencia    Decimal?    @db.Decimal(10, 2)
+  estado        ShiftStatus @default(ABIERTA)
+  observaciones String?
+
+  fechaApertura DateTime  @default(now())
+  fechaCierre   DateTime?
 
   userId String
   user   User   @relation(fields: [userId], references: [id])
   sales  Sale[]
 
+  @@index([userId, estado])
   @@map("cash_shifts")
 }
 
 model Sale {
-  id          String        @id @default(uuid())
-  montoTotal  Decimal       @db.Decimal(10, 2)
-  medioPago   PaymentMethod @default(EFECTIVO)
-  montoPaga   Decimal?      @db.Decimal(10, 2)
-  vuelto      Decimal?      @db.Decimal(10, 2)
-  createdAt   DateTime      @default(now())
+  id              String        @id @default(uuid())
+  numeroPedido    Int           @default(0)
+  estado          OrderStatus   @default(PENDIENTE)
+  canal           OrderChannel  @default(MOSTRADOR)
+  clienteNombre   String?
+  clienteTelefono String?
+  notas           String?
+  fechaListo      DateTime?
+  fechaEntregado  DateTime?
+  montoTotal      Decimal       @db.Decimal(10, 2)
+  medioPago       PaymentMethod @default(EFECTIVO)
+  montoPaga       Decimal?      @db.Decimal(10, 2)
+  vuelto          Decimal?      @db.Decimal(10, 2)
+  createdAt       DateTime      @default(now())
 
   userId      String
-  user        User        @relation(fields: [userId], references: [id])
+  user        User       @relation(fields: [userId], references: [id])
   cashShiftId String
-  cashShift   CashShift   @relation(fields: [cashShiftId], references: [id])
+  cashShift   CashShift  @relation(fields: [cashShiftId], references: [id])
   items       SaleItem[]
 
+  @@index([createdAt])
+  @@index([estado])
+  @@index([cashShiftId])
   @@map("sales")
 }
 
@@ -112,6 +140,7 @@ model SaleItem {
   cantidad       Int
   precioUnitario Decimal @db.Decimal(10, 2)
   subtotal       Decimal @db.Decimal(10, 2)
+  nota           String?
 
   saleId    String
   sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)

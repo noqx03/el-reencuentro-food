@@ -116,13 +116,15 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-8 pt-4 border-t border-slate-800/60 text-center">
-          <p className="text-[11px] text-slate-500">
-            Usuarios de prueba: <br />
-            <span className="text-slate-400">admin@elreencuentro.com</span> (pass: admin123) <br />
-            <span className="text-slate-400">ventas@elreencuentro.com</span> (pass: ventas123)
-          </p>
-        </div>
+        {process.env.NODE_ENV !== "production" && (
+          <div className="mt-8 pt-4 border-t border-slate-800/60 text-center">
+            <p className="text-[11px] text-slate-500">
+              Usuarios de prueba: <br />
+              <span className="text-slate-400">admin@elreencuentro.com</span> (pass: admin123) <br />
+              <span className="text-slate-400">ventas@elreencuentro.com</span> (pass: ventas123)
+            </p>
+          </div>
+        )}
 
       </div>
     </div>

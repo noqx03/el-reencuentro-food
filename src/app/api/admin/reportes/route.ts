@@ -1,30 +1,44 @@
 export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { OrderStatus, Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseArgentinaDayBoundary } from "@/lib/date";
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
+    if (!session?.user) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const userRole = session.user.role || session.user.rol;
+    if (userRole !== "ADMIN" && userRole !== "SUPERADMIN") {
+      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
     const host = req.headers.get("host") || "localhost:3000";
     const protocol = req.headers.get("x-forwarded-proto") || "http";
     const searchParams = new URL(req.url, `${protocol}://${host}`).searchParams;
 
-    // Construcción de filtros por fecha
-    let whereClause: any = {};
+    const fechaInicioParam = searchParams.get("fechaInicio");
+    const fechaFinParam = searchParams.get("fechaFin");
+
+    const whereClause: Prisma.SaleWhereInput = {};
 
     if (fechaInicioParam && fechaFinParam) {
-      const inicio = new Date(fechaInicioParam);
-      inicio.setHours(0, 0, 0, 0);
+      const inicio = parseArgentinaDayBoundary(fechaInicioParam, false);
+      const fin = parseArgentinaDayBoundary(fechaFinParam, true);
 
-      const fin = new Date(fechaFinParam);
-      fin.setHours(23, 59, 59, 999);
+      if (!inicio || !fin || inicio > fin) {
+        return NextResponse.json(
+          { error: "Rango de fechas inválido" },
+          { status: 400 }
+        );
+      }
 
       whereClause.createdAt = {
         gte: inicio,
@@ -32,7 +46,6 @@ export async function GET(req: Request) {
       };
     }
 
-    // Obtener las ventas con relaciones
     const ventas = await prisma.sale.findMany({
       where: whereClause,
       include: {
@@ -50,23 +63,51 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Totales calculados para métricas rápidas
-    const totalMonto = ventas.reduce((acc, v) => acc + Number(v.montoTotal), 0);
-    const totalEfectivo = ventas
-      .filter((v) => v.medioPago?.toUpperCase() === "EFECTIVO")
-      .reduce((acc, v) => acc + Number(v.montoTotal), 0);
+    const ventasActivas = ventas.filter(
+      (v) => v.estado !== OrderStatus.CANCELADO
+    );
+
+    let totalMonto = 0;
+    let totalEfectivo = 0;
+    let totalMercadoPago = 0;
+    let totalDebito = 0;
+    let totalCredito = 0;
+
+    for (const v of ventasActivas) {
+      const monto = Number(v.montoTotal) || 0;
+      totalMonto += monto;
+      switch (v.medioPago) {
+        case "EFECTIVO":
+          totalEfectivo += monto;
+          break;
+        case "MERCADOPAGO":
+          totalMercadoPago += monto;
+          break;
+        case "DEBITO":
+          totalDebito += monto;
+          break;
+        case "CREDITO":
+          totalCredito += monto;
+          break;
+      }
+    }
+
     const totalDigital = totalMonto - totalEfectivo;
 
     return NextResponse.json({
       ventas,
       metricas: {
-        totalVentasCount: ventas.length,
+        totalVentasCount: ventasActivas.length,
+        totalCanceladasCount: ventas.length - ventasActivas.length,
         totalMonto,
         totalEfectivo,
         totalDigital,
+        totalMercadoPago,
+        totalDebito,
+        totalCredito,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error al obtener reportes:", error);
     return NextResponse.json(
       { error: "Error al generar reporte de ventas" },

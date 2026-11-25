@@ -27,7 +27,8 @@ body {
   }
 
   /* Mostrar únicamente el contenedor del ticket */
-  .ticket-print-area, .ticket-print-area * {
+  .ticket-print-area,
+  .ticket-print-area * {
     visibility: visible;
   }
 
@@ -37,9 +38,9 @@ body {
     left: 0;
     top: 0;
     width: 72mm; /* Ancho imprimible de 80mm */
-    font-family: 'Courier New', Courier, monospace;
+    font-family: "Courier New", Courier, monospace;
     font-size: 12px;
-    line-height: 1.2;
+    line-height: 1.25;
     color: #000;
     background: #fff;
     padding: 0 2mm;
@@ -59,7 +60,15 @@ body {
     margin: 2px 0;
   }
 
-  .ticket-divider {
+  .ticket-order-number {
+    font-size: 18px !important;
+    font-weight: bold;
+    margin: 4px 0 !important;
+    letter-spacing: 0.5px;
+  }
+
+  .ticket-divider,
+  .ticket-cut {
     text-align: center;
     margin: 4px 0;
     font-weight: bold;
@@ -70,14 +79,36 @@ body {
     border-collapse: collapse;
   }
 
-  .ticket-table th, .ticket-table td {
+  .ticket-table th,
+  .ticket-table td {
     text-align: left;
     padding: 2px 0;
   }
 
-  .ticket-table .cant { width: 18%; }
-  .ticket-table .desc { width: 55%; font-weight: bold; }
-  .ticket-table .subt { width: 27%; text-align: right; }
+  .ticket-table .cant {
+    width: 18%;
+    vertical-align: top;
+  }
+  .ticket-table .desc {
+    width: 55%;
+    font-weight: bold;
+  }
+  .ticket-table .subt {
+    width: 27%;
+    text-align: right;
+    vertical-align: top;
+  }
+
+  .ticket-item-note {
+    font-size: 11px;
+    font-style: italic;
+    padding-bottom: 3px;
+  }
+
+  .ticket-order-note {
+    font-size: 11px;
+    margin: 4px 0;
+  }
 
   .ticket-total {
     margin-top: 6px;
@@ -95,6 +126,25 @@ body {
     text-align: center;
     margin-top: 10px;
     font-size: 11px;
+  }
+
+  .ticket-comanda {
+    margin-top: 14px;
+    page-break-before: always;
+  }
+
+  .comanda-items {
+    margin: 4px 0;
+  }
+
+  .comanda-item-row {
+    margin-bottom: 4px;
+  }
+
+  .comanda-item-title {
+    font-size: 13px;
+    font-weight: bold;
+    margin: 0;
   }
 
   @page {

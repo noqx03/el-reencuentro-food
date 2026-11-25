@@ -1,19 +1,18 @@
-process.env.NEXTAUTH_URL = process.env.NEXTAUTH_URL && process.env.NEXTAUTH_URL.startsWith("http") 
-  ? process.env.NEXTAUTH_URL 
-  : "https://el-reencuentro-food.vercel.app";
-  
-// Forzar un valor por defecto para evitar el error de URL inválida en el build de Vercel
-process.env.NEXTAUTH_URL = process.env.NEXTAUTH_URL || "https://el-reencuentro-food.vercel.app";
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+import type { AppRole } from "@/types/next-auth";
 
-const prisma = new PrismaClient();
+const authSecret =
+  process.env.NEXTAUTH_SECRET ||
+  (process.env.NODE_ENV !== "production"
+    ? "dev-only-secret-el-reencuentro-change-me"
+    : undefined);
 
 export const authOptions: NextAuthOptions = {
-    secret: process.env.NEXTAUTH_SECRET || "supersecretkey123",
-    providers: [
+  secret: authSecret,
+  providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -21,22 +20,27 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        const email = credentials?.email?.trim().toLowerCase();
+        const password = credentials?.password;
+
+        if (!email || !password) {
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+        const user = await prisma.user.findFirst({
+          where: {
+            email: {
+              equals: email,
+              mode: "insensitive",
+            },
+          },
         });
 
-        if (!user || !user.password) {
+        if (!user || !user.password || !user.activo) {
           return null;
         }
 
-        const isValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
+        const isValid = await bcrypt.compare(password, user.password);
 
         if (!isValid) {
           return null;
@@ -44,9 +48,9 @@ export const authOptions: NextAuthOptions = {
 
         return {
           id: user.id,
-          name: (user as any).name || (user as any).nombre || user.email,
+          name: user.nombre || user.email,
           email: user.email,
-          role: (user as any).rol || (user as any).role,
+          role: user.rol as AppRole,
         };
       },
     }),
@@ -57,15 +61,16 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = (user as { id? string }).id;
-        token.role = (user as { role?: string }).role;
+        token.id = user.id;
+        token.role = user.role;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as { id?: string; role?: string }).id = token.id as string;
-        (session.user as { id?: string; role?: string }).role = token.role as string;
+        session.user.id = (token.id as string) || "";
+        session.user.role = (token.role as AppRole) || "VENTAS";
+        session.user.rol = session.user.role;
       }
       return session;
     },
@@ -73,5 +78,4 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/login",
   },
-  secret: process.env.NEXTAUTH_SECRET,
 };

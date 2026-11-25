@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { 
-  Utensils, 
-  Users, 
-  FileText, 
-  Vault, 
-  ArrowLeft 
+import {
+  Utensils,
+  Users,
+  FileText,
+  Vault,
+  ArrowLeft,
+  ChefHat,
 } from "lucide-react";
 
 export default function AdminNav() {
@@ -30,6 +31,11 @@ export default function AdminNav() {
       icon: FileText,
     },
     {
+      label: "Pedidos / Cocina",
+      href: "/pedidos",
+      icon: ChefHat,
+    },
+    {
       label: "Control de Caja",
       href: "/caja",
       icon: Vault,
@@ -37,7 +43,7 @@ export default function AdminNav() {
   ];
 
   return (
-    <div className="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between shadow-lg">
+    <div className="bg-slate-900 border-b border-slate-800 px-6 py-3 flex flex-wrap items-center justify-between gap-3 shadow-lg">
       <div className="flex items-center gap-3">
         <Link
           href="/pos"
@@ -53,7 +59,7 @@ export default function AdminNav() {
       </div>
 
       {/* Pestañas de Secciones */}
-      <nav className="flex items-center gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+      <nav className="flex flex-wrap items-center gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -62,7 +68,7 @@ export default function AdminNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
                 isActive
                   ? "bg-indigo-600 text-white shadow-md"
                   : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
